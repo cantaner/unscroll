@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as makeRedirectUri from 'expo-auth-session';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -43,22 +43,22 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      const redirectTo = makeRedirectUri({
+        scheme: 'unscroll',
+        path: 'auth/callback',
+      });
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: makeRedirectUri.makeRedirectUri({
-            scheme: 'unscroll',
-            path: 'auth/callback',
-          }),
+          redirectTo,
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) throw error;
       if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, makeRedirectUri.makeRedirectUri({
-            scheme: 'unscroll',
-            path: 'auth/callback',
-        }));
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
         
         if (result.type === 'success') {
             const { url } = result;
