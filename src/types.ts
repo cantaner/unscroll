@@ -19,8 +19,15 @@ export interface SessionEvent {
   endTime?: number;
   durationMinutes?: number;
   appId: string;
+  activityType?: string; // New field for intended focus activity
   reason: string;
   isComplete: boolean;
+}
+
+
+export interface UserStats {
+  xp: number;
+  level: number;
 }
 
 export type RootStackParamList = {

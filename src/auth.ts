@@ -4,10 +4,11 @@ import { storage } from './storage';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth credentials from Google Cloud Console
-const GOOGLE_CLIENT_ID_IOS = '65897382054-c1l51j39ebg4tdsms97gp1r0j8ep8kqc.apps.googleusercontent.com';
-const GOOGLE_CLIENT_ID_ANDROID = '65897382054-c1l51j39ebg4tdsms97gp1r0j8ep8kqc.apps.googleusercontent.com'; // Using iOS as fallback for Android
-const GOOGLE_CLIENT_ID_WEB = '65897382054-01i267f378g0iqhpl0g2gmve0jt2r3l6.apps.googleusercontent.com';
+// TODO: Replace these with your actual Google OAuth credentials
+// Get these from https://console.cloud.google.com/
+const GOOGLE_CLIENT_ID_IOS = 'YOUR_IOS_CLIENT_ID_HERE.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID_ANDROID = 'YOUR_ANDROID_CLIENT_ID_HERE.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID_WEB = 'YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com';
 
 const discovery = {
   authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',

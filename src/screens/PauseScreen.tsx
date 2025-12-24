@@ -1,23 +1,29 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Animated, Easing } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, SessionEvent } from '../types';
-import { ScreenContainer, Button } from '../components/UiComponents';
-import { TYPOGRAPHY, COLORS, SPACING } from '../theme';
-import { getRandomMessage } from '../messages';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Text, TouchableOpacity, View } from 'react-native';
+import { Button, ScreenContainer } from '../components/UiComponents';
 import { storage } from '../storage';
+import { COLORS, SPACING, TYPOGRAPHY } from '../theme';
+import { RootStackParamList, SessionEvent } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Pause'>;
 
+const FOCUS_ACTIVITIES = ['Deep Work', 'Reading', 'Study', 'Meditation', 'Rest', 'Creativity', 'Other'];
+
 export const PauseScreen: React.FC<Props> = ({ navigation }) => {
+  const [step, setStep] = useState<'select' | 'breathe'>('select');
+  const [selectedActivity, setSelectedActivity] = useState<string>('');
+  
+  // Breath State
   const [timeLeft, setTimeLeft] = useState(5); // Shorter, 5s check-in
-  const [message] = useState(getRandomMessage());
-  const [instruction, setInstruction] = useState("Breathe In");
+  const [instruction, setInstruction] = useState("Breathe In"); // Still used for internal animation logic, not directly displayed
   
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    if (step !== 'breathe') return;
+
     // Breathing Animation Loop
     const breathe = Animated.sequence([
       Animated.parallel([
@@ -33,7 +39,7 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
     const loop = Animated.loop(breathe);
     loop.start();
 
-    // Toggle Text Instruction
+    // Toggle Text Instruction (internal, not directly displayed in new UI)
     const textInterval = setInterval(() => {
         setInstruction(prev => prev === "Breathe In" ? "Breathe Out" : "Breathe In");
     }, 3000);
@@ -44,7 +50,7 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
         if (prev <= 1) {
           clearInterval(interval);
           clearInterval(textInterval);
-          setInstruction("Ready?");
+          // setInstruction("Ready?"); // No longer needed as text is hardcoded
           return 0;
         }
         return prev - 1;
@@ -56,15 +62,20 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
         clearInterval(textInterval);
         loop.stop();
     };
-  }, []);
+  }, [step]); // Rerun effect when step changes to 'breathe'
 
-  const handleContinue = async () => {
-    const plan = await storage.getPlan();
+  const handleSelect = (activity: string) => {
+      setSelectedActivity(activity);
+      setStep('breathe');
+  };
+
+  const handleStart = async () => {
     const session: SessionEvent = {
       id: Date.now().toString(),
       startTime: Date.now(),
-      appId: plan?.apps[0] || 'unknown',
-      reason: 'unknown',
+      appId: 'focus',
+      activityType: selectedActivity, // Saved Intention
+      reason: 'intentional',
       isComplete: false
     };
     await storage.saveSession(session);
@@ -74,37 +85,75 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <ScreenContainer style={{ justifyContent: 'center', alignItems: 'center' }}>
       
-      {/* Breathing Circle */}
-      <Animated.View style={{
-        width: 240, height: 240, borderRadius: 120, 
-        backgroundColor: COLORS.surface,
-        borderWidth: 1, borderColor: COLORS.border,
-        marginBottom: SPACING.xl, alignItems: 'center', justifyContent: 'center',
-        transform: [{ scale: scaleAnim }],
-        opacity: fadeAnim,
-        shadowColor: COLORS.primary, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10
-      }}>
-        <Text style={{ fontSize: 64, fontWeight: '200', color: COLORS.primary }}>
-          {timeLeft > 0 ? timeLeft : '✓'}
-        </Text>
-      </Animated.View>
-      
-      <Text style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2, color: COLORS.textTertiary, marginBottom: SPACING.l }}>
-          {timeLeft > 0 ? instruction : "Mindful Check-in"}
-      </Text>
+      {step === 'select' ? (
+        <View style={{ width: '100%' }}>
+            <Text style={[TYPOGRAPHY.h1, { textAlign: 'center', marginBottom: SPACING.s }]}>Set Intention</Text>
+            <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', marginBottom: SPACING.xl }]}>What will you focus on?</Text>
+            
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+                {FOCUS_ACTIVITIES.map(activity => (
+                    <TouchableOpacity
+                        key={activity}
+                        onPress={() => handleSelect(activity)}
+                        style={{
+                            backgroundColor: COLORS.surface,
+                            paddingVertical: 16,
+                            paddingHorizontal: 24,
+                            borderRadius: 16,
+                            borderWidth: 1,
+                            borderColor: COLORS.border,
+                            width: '45%',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <Text style={{ color: COLORS.textPrimary, fontWeight: '600' }}>{activity}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+            
+             <Button 
+                title="Cancel" 
+                variant="ghost" 
+                onPress={() => navigation.goBack()} 
+                style={{ marginTop: SPACING.xl }}
+             />
+        </View>
+      ) : (
+        <>
+            <Animated.View style={{
+                width: 240, height: 240, borderRadius: 120, 
+                backgroundColor: COLORS.surface,
+                borderWidth: 1, borderColor: COLORS.primary,
+                marginBottom: SPACING.xl, alignItems: 'center', justifyContent: 'center',
+                transform: [{ scale: scaleAnim }],
+                opacity: fadeAnim,
+                shadowColor: COLORS.primary, shadowOpacity: 0.2, shadowRadius: 30, elevation: 10
+            }}>
+                <Text style={{ fontSize: 64, fontWeight: '200', color: COLORS.primary }}>
+                {timeLeft > 0 ? timeLeft : '✓'}
+                </Text>
+            </Animated.View>
+            
+            <Text style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2, color: COLORS.textTertiary, marginBottom: SPACING.l }}>
+                {timeLeft > 0 ? "Centering..." : "Ready"}
+            </Text>
 
-      <Text style={[TYPOGRAPHY.h2, { textAlign: 'center', paddingHorizontal: SPACING.l, fontSize: 22 }]}>
-        "{message}"
-      </Text>
+            <Text style={[TYPOGRAPHY.h2, { textAlign: 'center', paddingHorizontal: SPACING.l, fontSize: 20 }]}>
+                Preparing for {selectedActivity}...
+            </Text>
 
-      <View style={{ flex: 1 }} />
-      
-      <View style={{ width: '100%', gap: 12 }}>
-          {timeLeft === 0 && (
-            <Button title="Continue to App" onPress={handleContinue} />
-          )}
-          <Button title="I don't need to scroll" variant="secondary" onPress={() => navigation.goBack()} />
-      </View>
+            <View style={{ flex: 1 }} />
+            
+            <View style={{ width: '100%', gap: 12 }}>
+                {timeLeft === 0 && (
+                    <Button title="Begin Session" onPress={handleStart} />
+                )}
+                 {timeLeft > 0 && (
+                    <Button title="Skip Breathing" variant="ghost" onPress={handleStart} />
+                 )}
+            </View>
+        </>
+      )}
     </ScreenContainer>
   );
 };

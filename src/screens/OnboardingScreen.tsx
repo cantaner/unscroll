@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ImageBackground } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, WeeklyPlan } from '../types';
-import { ScreenContainer, Button, SelectionItem, Card, FadeInView, AppLogo } from '../components/UiComponents';
-import { TYPOGRAPHY, SPACING, COLORS } from '../theme';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AppLogo, Button, Card, FadeInView, ScreenContainer, SelectionItem } from '../components/UiComponents';
 import { storage } from '../storage';
+import { COLORS, SPACING, TYPOGRAPHY } from '../theme';
+import { RootStackParamList, WeeklyPlan } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
@@ -181,14 +181,14 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Daily Limit Section */}
             <Card>
-              <Text style={TYPOGRAPHY.label}>Daily Limit</Text>
+              <Text style={TYPOGRAPHY.label}>Daily Focus Goal</Text>
               <Text style={[TYPOGRAPHY.body, { marginBottom: 16, fontSize: 14 }]}>
-                Studies suggest limiting high-dopamine inputs to specific windows prevents "attention fragmentation".
+                Set a target for your daily deep work or mindfulness sessions. Consistency beats intensity.
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 {limitOptions.map((opt, i) => {
                     const isSel = !isCustomLimit && limit === opt.toString();
-                    const labels = ["Strict", "Balanced", "Relaxed"];
+                    const labels = ["Starter", "Balanced", "Ambitious"];
                     return (
                         <TouchableOpacity key={i} onPress={() => { setLimit(opt.toString()); setIsCustomLimit(false); }}
                             style={{ 

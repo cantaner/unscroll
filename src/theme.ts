@@ -1,57 +1,88 @@
 import { StyleSheet, TextStyle } from 'react-native';
 
 export const COLORS = {
-  background: '#F0F4F8',    // Soft blue-gray background
-  surface: '#FFFFFF',       // Pure white for cards
-  primary: '#0F172A',       // Deep slate for primary text/actions
-  secondary: '#334155',     // Slate for secondary elements
-  textPrimary: '#0F172A',   // Deep slate
-  textSecondary: '#64748B', // Medium slate
-  textTertiary: '#94A3B8',  // Light slate
-  accent: '#F59E0B',        // Warm amber accent
-  accentSecondary: '#8B5CF6', // Purple accent for variety
-  success: '#10B981',       // Emerald success
-  danger: '#EF4444',        // Red danger
-  border: '#E2E8F0',        // Light slate border
-  cyan: '#06B6D4',          // Vibrant cyan
-  purple: '#A855F7',        // Rich purple
+  background: '#0F172A', // Deep Slate - Main background
+  surface: '#1E293B',    // Slate 800 - Cards
+  surfaceHighlight: '#334155', // Slate 700 - Clickable areas
+  primary: '#2DD4BF',    // Teal 400 - Action/Focus
+  primaryDim: 'rgba(45, 212, 191, 0.15)',
+  accent: '#F472B6',     // Pink 400 - Warmth/Love
+  accentDim: 'rgba(244, 114, 182, 0.15)',
+  textPrimary: '#F8FAFC', // Slate 50
+  textSecondary: '#94A3B8', // Slate 400
+  textTertiary: '#64748B',  // Slate 500
+  border: '#334155',
+  success: '#34D399',
+  error: '#F87171',
+  warning: '#FBBF24',
 };
 
-export const SPACING = { xs: 4, s: 8, m: 16, l: 24, xl: 32, xxl: 48 };
+export const SPACING = {
+  xs: 4,
+  s: 8,
+  m: 16,
+  l: 24,
+  xl: 32,
+  xxl: 48,
+};
+
+// Simple object for now, expanding later
+export const TYPOGRAPHY = {
+  h1: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: SPACING.s,
+  } as TextStyle,
+  h2: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.25,
+    marginBottom: SPACING.xs,
+  } as TextStyle,
+  subtitle: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+    marginBottom: SPACING.m,
+  } as TextStyle,
+  body: {
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    lineHeight: 24,
+  } as TextStyle,
+  label: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+  } as TextStyle,
+  statValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: COLORS.primary,
+  } as TextStyle,
+};
 
 export const SHADOWS = {
-  soft: {
-    shadowColor: "#1C1917",
+  light: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  medium: {
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 4,
   },
-  strong: {
-    shadowColor: "#1C1917",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  }
-  ,
-  // button shadow is a slightly tighter shadow used for primary action buttons
-  button: {
-    shadowColor: '#1C1917',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 6,
-  }
-};
-
-export const TYPOGRAPHY: { [k: string]: TextStyle } = {
-  h1: { fontSize: 28, fontWeight: '700' as TextStyle['fontWeight'], color: COLORS.textPrimary },
-  h2: { fontSize: 20, fontWeight: '700' as TextStyle['fontWeight'], color: COLORS.textPrimary },
-  subtitle: { fontSize: 14, color: COLORS.textTertiary, fontWeight: '600' as TextStyle['fontWeight'] },
-  body: { fontSize: 14, color: COLORS.textPrimary },
-  label: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '700' as TextStyle['fontWeight'], letterSpacing: 0.4 },
-  statValue: { fontSize: 48, fontWeight: '300' as TextStyle['fontWeight'], color: COLORS.primary }
 };
 
 export const GLOBAL_STYLES = StyleSheet.create({
@@ -60,12 +91,5 @@ export const GLOBAL_STYLES = StyleSheet.create({
     backgroundColor: COLORS.background,
     paddingHorizontal: SPACING.l,
     paddingTop: SPACING.l,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 28, // More rounded
-    padding: SPACING.l,
-    marginBottom: SPACING.m,
-    ...SHADOWS.soft,
   },
 });

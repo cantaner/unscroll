@@ -1,40 +1,40 @@
-
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ViewStyle, Animated, ImageStyle } from 'react-native';
-import { COLORS, SPACING, GLOBAL_STYLES, SHADOWS } from '../theme';
+import { Animated, Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { COLORS, GLOBAL_STYLES, SPACING } from '../theme';
 
 // --- App Logo ---
-export const AppLogo: React.FC<{ size?: number, color?: string }> = ({ size = 40, color = COLORS.primary }) => (
+export const AppLogo: React.FC<{ size?: number }> = ({ size = 40 }) => (
   <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-     {/* Simple geometric logo: A circle with a "pause" gap */}
+     {/* Simple, clean Zen Circle */}
      <View style={{ 
        width: size, 
        height: size, 
        borderRadius: size / 2, 
-       borderWidth: size / 6, 
-       borderColor: color,
-       opacity: 0.9 
+       borderWidth: 3, 
+       borderColor: COLORS.primary,
+       opacity: 1
      }} />
      <View style={{
          position: 'absolute',
-         width: size / 3,
-         height: size + 10,
-         backgroundColor: COLORS.background, // mask to create the 'U' shape
-         top: -5,
+         width: size * 0.4,
+         height: size * 0.4,
+         borderRadius: size * 0.2,
+         backgroundColor: COLORS.accent,
+         opacity: 0.8
      }}/>
   </View>
 );
 
 // --- Fade In Wrapper ---
-export const FadeInView: React.FC<{ children: React.ReactNode, delay?: number, style?: ViewStyle }> = ({ children, delay = 0, style }) => {
+export const FadeInView: React.FC<{ children: React.ReactNode, delay?: number, style?: StyleProp<ViewStyle> }> = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, delay, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 600, delay, useNativeDriver: true })
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, delay, useNativeDriver: true })
     ]).start();
   }, []);
 
@@ -46,114 +46,301 @@ export const FadeInView: React.FC<{ children: React.ReactNode, delay?: number, s
 };
 
 // --- Screen Container ---
-export const ScreenContainer: React.FC<{ children: React.ReactNode, style?: ViewStyle }> = ({ children, style }) => (
+export const ScreenContainer: React.FC<{ children: React.ReactNode, style?: StyleProp<ViewStyle> }> = ({ children, style }) => (
   <SafeAreaView style={[GLOBAL_STYLES.screenContainer, style]}>
     {children}
   </SafeAreaView>
 );
 
-// --- Card ---
-export const Card: React.FC<{ children: React.ReactNode, style?: ViewStyle }> = ({ children, style }) => (
-  <View style={[GLOBAL_STYLES.card, style]}>
+// --- Enhanced Card Components (shadcn/ui inspired) ---
+export const Card: React.FC<{ children: React.ReactNode, style?: StyleProp<ViewStyle> }> = ({ children, style }) => (
+  <View style={[
+    {
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      padding: SPACING.m,
+      marginBottom: SPACING.m,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    }, 
+    style
+  ]}>
     {children}
   </View>
 );
 
-// --- Button ---
+export const CardHeader: React.FC<{ children: React.ReactNode, style?: StyleProp<ViewStyle> }> = ({ children, style }) => (
+  <View style={[{ marginBottom: SPACING.s }, style]}>
+    {children}
+  </View>
+);
+
+export const CardTitle: React.FC<{ children: React.ReactNode, style?: StyleProp<TextStyle> }> = ({ children, style }) => (
+  <Text style={[{ fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 }, style]}>
+    {children}
+  </Text>
+);
+
+export const CardDescription: React.FC<{ children: React.ReactNode, style?: StyleProp<TextStyle> }> = ({ children, style }) => (
+  <Text style={[{ fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 }, style]}>
+    {children}
+  </Text>
+);
+
+export const CardContent: React.FC<{ children: React.ReactNode, style?: StyleProp<ViewStyle> }> = ({ children, style }) => (
+  <View style={[{ paddingVertical: SPACING.xs }, style]}>
+    {children}
+  </View>
+);
+
+export const CardFooter: React.FC<{ children: React.ReactNode, style?: StyleProp<ViewStyle> }> = ({ children, style }) => (
+  <View style={[{ marginTop: SPACING.s, flexDirection: 'row', gap: SPACING.s }, style]}>
+    {children}
+  </View>
+);
+
+// --- Enhanced Button Component (shadcn/ui inspired with variants) ---
+type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
+
 interface ButtonProps {
-  title: string;
+  title?: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   icon?: string;
+  children?: React.ReactNode;
 }
 
-export const Button: React.FC<ButtonProps> = ({ title, onPress, variant = 'primary', disabled, style, icon }) => {
-  const getBgColor = () => {
-    if (disabled) return '#D6D3D1';
+export const Button: React.FC<ButtonProps> = ({ 
+  title, 
+  onPress, 
+  variant = 'default', 
+  size = 'default',
+  disabled, 
+  style, 
+  icon,
+  children 
+}) => {
+  const [pressed, setPressed] = React.useState(false);
+
+  const getVariantStyles = (): { bg: string, text: string, border?: string } => {
+    if (disabled) {
+      return { bg: COLORS.surfaceHighlight, text: COLORS.textTertiary };
+    }
+    
     switch (variant) {
-      case 'primary': return COLORS.primary;
-      case 'secondary': return COLORS.surface;
-      default: return 'transparent';
+      case 'default':
+        return { bg: COLORS.primary, text: COLORS.background };
+      case 'destructive':
+        return { bg: COLORS.error, text: '#FFFFFF' };
+      case 'outline':
+        return { bg: 'transparent', text: COLORS.textPrimary, border: COLORS.border };
+      case 'secondary':
+        return { bg: COLORS.surfaceHighlight, text: COLORS.textPrimary };
+      case 'ghost':
+        return { bg: 'transparent', text: COLORS.textSecondary };
+      case 'link':
+        return { bg: 'transparent', text: COLORS.primary };
+      default:
+        return { bg: COLORS.primary, text: COLORS.background };
     }
   };
 
-  const getTextColor = () => {
-    if (disabled) return '#A8A29E';
-    switch (variant) {
-      case 'primary': return '#FFFFFF';
-      case 'secondary': return COLORS.primary;
-      default: return COLORS.textSecondary;
+  const getSizeStyles = () => {
+    switch (size) {
+      case 'sm':
+        return { paddingVertical: 8, paddingHorizontal: 12, fontSize: 14 };
+      case 'lg':
+        return { paddingVertical: 18, paddingHorizontal: 24, fontSize: 18 };
+      case 'icon':
+        return { paddingVertical: 12, paddingHorizontal: 12, fontSize: 16 };
+      default:
+        return { paddingVertical: 14, paddingHorizontal: 20, fontSize: 16 };
     }
   };
+
+  const variantStyles = getVariantStyles();
+  const sizeStyles = getSizeStyles();
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       disabled={disabled}
-      activeOpacity={0.8}
       style={[
         {
-          backgroundColor: getBgColor(),
-          paddingVertical: 18,
-          paddingHorizontal: SPACING.l,
-          borderRadius: 20,
+          backgroundColor: variantStyles.bg,
+          paddingVertical: sizeStyles.paddingVertical,
+          paddingHorizontal: sizeStyles.paddingHorizontal,
+          borderRadius: 12,
           alignItems: 'center',
           justifyContent: 'center',
-          width: '100%',
+          width: size === 'icon' ? 'auto' : '100%',
           marginBottom: SPACING.m,
           flexDirection: 'row',
-          ...(variant === 'secondary' ? { borderWidth: 1, borderColor: COLORS.border } : {}),
-          ...(variant === 'primary' ? SHADOWS.button : {})
+          gap: 8,
+          opacity: pressed ? 0.8 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+          ...(variantStyles.border && { 
+            borderWidth: 1, 
+            borderColor: variantStyles.border 
+          }),
+          ...(variant === 'ghost' && pressed && {
+            backgroundColor: COLORS.surfaceHighlight
+          })
         },
         style
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
     >
-      {icon && <Text style={{ marginRight: 8, fontSize: 18 }}>{icon}</Text>}
-      <Text style={{ color: getTextColor(), fontSize: 16, fontWeight: '600', letterSpacing: 0.5 }}>{title}</Text>
-    </TouchableOpacity>
+      {icon && <Text style={{ fontSize: sizeStyles.fontSize + 2, color: variantStyles.text }}>{icon}</Text>}
+      {(title || children) && (
+        <Text style={{ 
+          color: variantStyles.text, 
+          fontSize: sizeStyles.fontSize, 
+          fontWeight: variant === 'link' ? '500' : '700',
+          letterSpacing: 0.3,
+          ...(variant === 'link' && { textDecorationLine: 'underline' })
+        }}>
+          {children || title}
+        </Text>
+      )}
+    </Pressable>
   );
 };
 
-// --- Selection Item ---
+// --- Badge Component (new, shadcn/ui inspired) ---
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
+
+interface BadgeProps {
+  children: React.ReactNode;
+  variant?: BadgeVariant;
+  style?: StyleProp<ViewStyle>;
+}
+
+export const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', style }) => {
+  const getVariantStyles = () => {
+    switch (variant) {
+      case 'default':
+        return { bg: COLORS.primary, text: COLORS.background };
+      case 'secondary':
+        return { bg: COLORS.surfaceHighlight, text: COLORS.textSecondary };
+      case 'destructive':
+        return { bg: COLORS.error, text: '#FFFFFF' };
+      case 'outline':
+        return { bg: 'transparent', text: COLORS.textPrimary, border: COLORS.border };
+      case 'success':
+        return { bg: COLORS.success, text: COLORS.background };
+      default:
+        return { bg: COLORS.primary, text: COLORS.background };
+    }
+  };
+
+  const variantStyles = getVariantStyles();
+
+  return (
+    <View style={[
+      {
+        backgroundColor: variantStyles.bg,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        alignSelf: 'flex-start',
+        ...(variantStyles.border && {
+          borderWidth: 1,
+          borderColor: variantStyles.border
+        })
+      },
+      style
+    ]}>
+      <Text style={{
+        color: variantStyles.text,
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5
+      }}>
+        {children}
+      </Text>
+    </View>
+  );
+};
+
+// --- Separator Component (new, shadcn/ui inspired) ---
+interface SeparatorProps {
+  orientation?: 'horizontal' | 'vertical';
+  style?: StyleProp<ViewStyle>;
+}
+
+export const Separator: React.FC<SeparatorProps> = ({ orientation = 'horizontal', style }) => (
+  <View style={[
+    {
+      backgroundColor: COLORS.border,
+      ...(orientation === 'horizontal' 
+        ? { height: 1, width: '100%', marginVertical: SPACING.m }
+        : { width: 1, height: '100%', marginHorizontal: SPACING.m }
+      )
+    },
+    style
+  ]} />
+);
+
+// --- Enhanced Selection Item ---
 interface SelectionItemProps {
   label: string;
   subLabel?: string;
   selected: boolean;
   onPress: () => void;
-  image?: string; // URL for stock image
 }
 
-export const SelectionItem: React.FC<SelectionItemProps> = ({ label, subLabel, selected, onPress, image }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    activeOpacity={0.9}
-    style={{
-      backgroundColor: selected ? COLORS.primary : COLORS.surface,
-      padding: SPACING.m,
-      borderRadius: 16,
-      marginBottom: SPACING.s,
-      borderWidth: 1,
-      borderColor: selected ? COLORS.primary : COLORS.border,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      minHeight: 60,
-      overflow: 'hidden',
-      position: 'relative'
-    }}
-  >
-    <View style={{ zIndex: 2, flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: selected ? '#FFF' : COLORS.textPrimary }}>{label}</Text>
-        {subLabel && <Text style={{ fontSize: 13, marginTop: 2, color: selected ? '#D6D3D1' : COLORS.textSecondary }}>{subLabel}</Text>}
-    </View>
-    {selected && <View style={{ backgroundColor: '#FFF', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: 'bold' }}>✓</Text></View>}
-    
-    {image && (
-        <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, opacity: selected ? 0.2 : 0.1, backgroundColor: '#000' }}>
-            {/* React Native Image would go here, simulated with view for pure TS */}
+export const SelectionItem: React.FC<SelectionItemProps> = ({ label, subLabel, selected, onPress }) => {
+  const [pressed, setPressed] = React.useState(false);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={{
+        backgroundColor: selected ? COLORS.primaryDim : COLORS.surface,
+        padding: SPACING.m,
+        borderRadius: 12,
+        marginBottom: SPACING.s,
+        borderWidth: 1.5,
+        borderColor: selected ? COLORS.primary : COLORS.border,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        opacity: pressed ? 0.8 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+    >
+      <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: selected ? COLORS.primary : COLORS.textPrimary }}>{label}</Text>
+          {subLabel && <Text style={{ fontSize: 13, marginTop: 2, color: COLORS.textSecondary }}>{subLabel}</Text>}
+      </View>
+      {selected && (
+        <View style={{ 
+          width: 24, height: 24, borderRadius: 12, 
+          backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' 
+        }}>
+          <Text style={{ color: COLORS.background, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
         </View>
-    )}
-  </TouchableOpacity>
-);
+      )}
+    </Pressable>
+  );
+};
