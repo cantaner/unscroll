@@ -8,16 +8,35 @@ import { RootStackParamList, SessionEvent } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Pause'>;
 
-const FOCUS_ACTIVITIES = ['Deep Work', 'Reading', 'Study', 'Meditation', 'Rest', 'Creativity', 'Other'];
+const POSITIVE_ACTIVITIES = [
+  { id: 'deep-work', label: 'Deep Work', emoji: '💼' },
+  { id: 'reading', label: 'Reading', emoji: '📚' },
+  { id: 'study', label: 'Study', emoji: '📝' },
+  { id: 'meditation', label: 'Meditation', emoji: '🧘' },
+  { id: 'exercise', label: 'Exercise', emoji: '💪' },
+  { id: 'creativity', label: 'Creativity', emoji: '🎨' },
+  { id: 'rest', label: 'Rest', emoji: '😴' },
+  { id: 'other-positive', label: 'Other', emoji: '✨' },
+];
+
+const NEGATIVE_ACTIVITIES = [
+  { id: 'twitter', label: 'Twitter', emoji: '🐦' },
+  { id: 'instagram', label: 'Instagram', emoji: '📸' },
+  { id: 'tiktok', label: 'TikTok', emoji: '🎵' },
+  { id: 'youtube', label: 'YouTube', emoji: '📺' },
+  { id: 'facebook', label: 'Facebook', emoji: '👥' },
+  { id: 'reddit', label: 'Reddit', emoji: '🤖' },
+  { id: 'gaming', label: 'Gaming', emoji: '🎮' },
+  { id: 'other-negative', label: 'Other', emoji: '📱' },
+];
 
 export const PauseScreen: React.FC<Props> = ({ navigation }) => {
-  const [step, setStep] = useState<'select' | 'breathe'>('select');
+  const [step, setStep] = useState<'intention' | 'activity' | 'breathe'>('intention');
+  const [intention, setIntention] = useState<'positive' | 'negative' | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<string>('');
   
   // Breath State
-  const [timeLeft, setTimeLeft] = useState(5); // Shorter, 5s check-in
-  const [instruction, setInstruction] = useState("Breathe In"); // Still used for internal animation logic, not directly displayed
-  
+  const [timeLeft, setTimeLeft] = useState(5);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -39,18 +58,11 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
     const loop = Animated.loop(breathe);
     loop.start();
 
-    // Toggle Text Instruction (internal, not directly displayed in new UI)
-    const textInterval = setInterval(() => {
-        setInstruction(prev => prev === "Breathe In" ? "Breathe Out" : "Breathe In");
-    }, 3000);
-
     // Countdown
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          clearInterval(textInterval);
-          // setInstruction("Ready?"); // No longer needed as text is hardcoded
           return 0;
         }
         return prev - 1;
@@ -58,100 +70,202 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
     }, 1000);
 
     return () => {
-        clearInterval(interval);
-        clearInterval(textInterval);
-        loop.stop();
+      clearInterval(interval);
+      loop.stop();
     };
-  }, [step]); // Rerun effect when step changes to 'breathe'
+  }, [step]);
 
-  const handleSelect = (activity: string) => {
-      setSelectedActivity(activity);
-      setStep('breathe');
+  const handleIntentionSelect = (selectedIntention: 'positive' | 'negative') => {
+    setIntention(selectedIntention);
+    setStep('activity');
+  };
+
+  const handleActivitySelect = (activity: string) => {
+    setSelectedActivity(activity);
+    setStep('breathe');
   };
 
   const handleStart = async () => {
+    const isPositive = intention === 'positive';
     const session: SessionEvent = {
       id: Date.now().toString(),
       startTime: Date.now(),
-      appId: 'focus',
-      activityType: selectedActivity, // Saved Intention
+      appId: isPositive ? 'focus' : selectedActivity,
+      activityType: selectedActivity,
       reason: 'intentional',
       isComplete: false
     };
+    
     await storage.saveSession(session);
+    
+    // For negative sessions, log as app usage (slip-up)
+    if (!isPositive) {
+      await storage.logAppUsage({
+        appId: selectedActivity,
+        durationMinutes: 0, // Will be calculated on session end
+        timestamp: Date.now()
+      });
+    }
+    
     navigation.replace('ActiveSession', { sessionId: session.id });
   };
 
   return (
     <ScreenContainer style={{ justifyContent: 'center', alignItems: 'center' }}>
       
-      {step === 'select' ? (
-        <View style={{ width: '100%' }}>
-            <Text style={[TYPOGRAPHY.h1, { textAlign: 'center', marginBottom: SPACING.s }]}>Set Intention</Text>
-            <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', marginBottom: SPACING.xl }]}>What will you focus on?</Text>
-            
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-                {FOCUS_ACTIVITIES.map(activity => (
-                    <TouchableOpacity
-                        key={activity}
-                        onPress={() => handleSelect(activity)}
-                        style={{
-                            backgroundColor: COLORS.surface,
-                            paddingVertical: 16,
-                            paddingHorizontal: 24,
-                            borderRadius: 16,
-                            borderWidth: 1,
-                            borderColor: COLORS.border,
-                            width: '45%',
-                            alignItems: 'center'
-                        }}
-                    >
-                        <Text style={{ color: COLORS.textPrimary, fontWeight: '600' }}>{activity}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-            
-             <Button 
-                title="Cancel" 
-                variant="ghost" 
-                onPress={() => navigation.goBack()} 
-                style={{ marginTop: SPACING.xl }}
-             />
+      {step === 'intention' && (
+        <View style={{ width: '100%', alignItems: 'center' }}>
+          <Text style={[TYPOGRAPHY.h1, { textAlign: 'center', marginBottom: SPACING.s }]}>Start Session</Text>
+          <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', marginBottom: SPACING.xxl, color: COLORS.textSecondary }]}>
+            What's your intention?
+          </Text>
+          
+          {/* Positive Intention Card */}
+          <TouchableOpacity
+            onPress={() => handleIntentionSelect('positive')}
+            style={{
+              width: '100%',
+              backgroundColor: COLORS.surface,
+              padding: SPACING.xl,
+              borderRadius: 20,
+              borderWidth: 2,
+              borderColor: COLORS.primary,
+              marginBottom: SPACING.l,
+              alignItems: 'center',
+              shadowColor: COLORS.primary,
+              shadowOpacity: 0.2,
+              shadowRadius: 10,
+              elevation: 5
+            }}
+          >
+            <Text style={{ fontSize: 48, marginBottom: SPACING.m }}>🌱</Text>
+            <Text style={[TYPOGRAPHY.h2, { color: COLORS.primary, marginBottom: SPACING.xs }]}>
+              Build Yourself
+            </Text>
+            <Text style={[TYPOGRAPHY.body, { color: COLORS.textSecondary, textAlign: 'center' }]}>
+              Invest in growth, focus, and well-being
+            </Text>
+          </TouchableOpacity>
+
+          {/* Negative Intention Card */}
+          <TouchableOpacity
+            onPress={() => handleIntentionSelect('negative')}
+            style={{
+              width: '100%',
+              backgroundColor: COLORS.surface,
+              padding: SPACING.xl,
+              borderRadius: 20,
+              borderWidth: 2,
+              borderColor: '#FF6B6B',
+              alignItems: 'center',
+              shadowColor: '#FF6B6B',
+              shadowOpacity: 0.2,
+              shadowRadius: 10,
+              elevation: 5
+            }}
+          >
+            <Text style={{ fontSize: 48, marginBottom: SPACING.m }}>🌊</Text>
+            <Text style={[TYPOGRAPHY.h2, { color: '#FF6B6B', marginBottom: SPACING.xs }]}>
+              Give In to Desire
+            </Text>
+            <Text style={[TYPOGRAPHY.body, { color: COLORS.textSecondary, textAlign: 'center' }]}>
+              Track distractions and slip-ups
+            </Text>
+          </TouchableOpacity>
+
+          <Button 
+            title="Cancel" 
+            variant="ghost" 
+            onPress={() => navigation.goBack()} 
+            style={{ marginTop: SPACING.xl }}
+          />
         </View>
-      ) : (
-        <>
-            <Animated.View style={{
-                width: 240, height: 240, borderRadius: 120, 
-                backgroundColor: COLORS.surface,
-                borderWidth: 1, borderColor: COLORS.primary,
-                marginBottom: SPACING.xl, alignItems: 'center', justifyContent: 'center',
-                transform: [{ scale: scaleAnim }],
-                opacity: fadeAnim,
-                shadowColor: COLORS.primary, shadowOpacity: 0.2, shadowRadius: 30, elevation: 10
-            }}>
-                <Text style={{ fontSize: 64, fontWeight: '200', color: COLORS.primary }}>
-                {timeLeft > 0 ? timeLeft : '✓'}
+      )}
+
+      {step === 'activity' && (
+        <View style={{ width: '100%' }}>
+          <Text style={[TYPOGRAPHY.h1, { textAlign: 'center', marginBottom: SPACING.s }]}>
+            {intention === 'positive' ? 'Build Yourself' : 'Give In to Desire'}
+          </Text>
+          <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', marginBottom: SPACING.xl, color: COLORS.textSecondary }]}>
+            What will you {intention === 'positive' ? 'focus on' : 'track'}?
+          </Text>
+          
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+            {(intention === 'positive' ? POSITIVE_ACTIVITIES : NEGATIVE_ACTIVITIES).map(activity => (
+              <TouchableOpacity
+                key={activity.id}
+                onPress={() => handleActivitySelect(activity.label)}
+                style={{
+                  backgroundColor: COLORS.surface,
+                  paddingVertical: 16,
+                  paddingHorizontal: 20,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  width: '45%',
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  gap: 8
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>{activity.emoji}</Text>
+                <Text style={{ color: COLORS.textPrimary, fontWeight: '600', flex: 1 }}>
+                  {activity.label}
                 </Text>
-            </Animated.View>
-            
-            <Text style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2, color: COLORS.textTertiary, marginBottom: SPACING.l }}>
-                {timeLeft > 0 ? "Centering..." : "Ready"}
-            </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <Button 
+            title="Back" 
+            variant="ghost" 
+            onPress={() => setStep('intention')} 
+            style={{ marginTop: SPACING.xl }}
+          />
+        </View>
+      )}
 
-            <Text style={[TYPOGRAPHY.h2, { textAlign: 'center', paddingHorizontal: SPACING.l, fontSize: 20 }]}>
-                Preparing for {selectedActivity}...
+      {step === 'breathe' && (
+        <>
+          <Animated.View style={{
+            width: 240, height: 240, borderRadius: 120, 
+            backgroundColor: COLORS.surface,
+            borderWidth: 1, 
+            borderColor: intention === 'positive' ? COLORS.primary : '#FF6B6B',
+            marginBottom: SPACING.xl, alignItems: 'center', justifyContent: 'center',
+            transform: [{ scale: scaleAnim }],
+            opacity: fadeAnim,
+            shadowColor: intention === 'positive' ? COLORS.primary : '#FF6B6B',
+            shadowOpacity: 0.2, shadowRadius: 30, elevation: 10
+          }}>
+            <Text style={{ 
+              fontSize: 64, 
+              fontWeight: '200', 
+              color: intention === 'positive' ? COLORS.primary : '#FF6B6B' 
+            }}>
+              {timeLeft > 0 ? timeLeft : '✓'}
             </Text>
+          </Animated.View>
+          
+          <Text style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2, color: COLORS.textTertiary, marginBottom: SPACING.l }}>
+            {timeLeft > 0 ? "Centering..." : "Ready"}
+          </Text>
 
-            <View style={{ flex: 1 }} />
-            
-            <View style={{ width: '100%', gap: 12 }}>
-                {timeLeft === 0 && (
-                    <Button title="Begin Session" onPress={handleStart} />
-                )}
-                 {timeLeft > 0 && (
-                    <Button title="Skip Breathing" variant="ghost" onPress={handleStart} />
-                 )}
-            </View>
+          <Text style={[TYPOGRAPHY.h2, { textAlign: 'center', paddingHorizontal: SPACING.l, fontSize: 20 }]}>
+            Preparing for {selectedActivity}...
+          </Text>
+
+          <View style={{ flex: 1 }} />
+          
+          <View style={{ width: '100%', gap: 12 }}>
+            {timeLeft === 0 && (
+              <Button title="Begin Session" onPress={handleStart} />
+            )}
+            {timeLeft > 0 && (
+              <Button title="Skip Breathing" variant="ghost" onPress={handleStart} />
+            )}
+          </View>
         </>
       )}
     </ScreenContainer>

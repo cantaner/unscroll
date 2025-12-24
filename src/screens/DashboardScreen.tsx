@@ -84,11 +84,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               appUsage[key] = (appUsage[key] || 0) + (s.durationMinutes || 0);
             });
             
-          // Negative apps (mark with prefix for UI)
+          // Negative apps (from slip-up sessions)
           negativeUsage
              .filter((u: any) => new Date(u.timestamp) >= sevenDaysAgo)
              .forEach((u: any) => {
-                 const key = `(Scrolled) ${u.appId}`; 
+                 const key = u.appId; // Use app name directly (Twitter, Instagram, etc.)
                  appUsage[key] = (appUsage[key] || 0) + (u.durationMinutes || 0);
              });
 
@@ -181,10 +181,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
              </View>
           </View>
            <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button title="Slip Up" variant="secondary" onPress={async () => {
-                await storage.logAppUsage?.({ appId: 'Instagram', durationMinutes: 5, timestamp: Date.now() });
-                navigation.replace('Dashboard' as any);
-            }} style={{ width: 'auto', marginBottom: 0, paddingVertical: 4, height: 32 }} />
             <Button title="Settings" variant="ghost" onPress={() => navigation.navigate('Settings')} style={{ width: 'auto', marginBottom: 0 }} />
           </View>
         </View>
@@ -339,9 +335,12 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={{ color: '#EF4444', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Slip Ups</Text>
                     <Text style={{ color: '#EF4444', fontSize: 28, fontWeight: '700', textAlign: 'right' }}>
                         {
-                            Object.entries(perAppUsage)
-                            .filter(([k]) => k.startsWith('(Scrolled)'))
-                            .reduce((acc, [, v]) => acc + v, 0)
+                            (() => {
+                              const NEGATIVE_APPS = ['Twitter', 'Instagram', 'TikTok', 'YouTube', 'Facebook', 'Reddit', 'Gaming', 'Other'];
+                              return Object.entries(perAppUsage)
+                                .filter(([activity]) => NEGATIVE_APPS.includes(activity))
+                                .reduce((acc, [, minutes]) => acc + minutes, 0);
+                            })()
                         }m
                     </Text>
                 </View>
@@ -359,7 +358,8 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     const total = Object.values(perAppUsage).reduce((a, b) => a + b, 0);
                     const pct = Math.min(100, (minutes / (total || 1)) * 100);
                     const displayPct = Math.round(pct);
-                    const isNegative = activity.startsWith('(Scrolled)');
+                    const NEGATIVE_APPS = ['Twitter', 'Instagram', 'TikTok', 'YouTube', 'Facebook', 'Reddit', 'Gaming', 'Other'];
+                    const isNegative = NEGATIVE_APPS.includes(activity);
 
                     return (
                         <View key={activity} style={{}}>
@@ -378,20 +378,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={{ color: '#64748B', fontStyle: 'italic' }}>No activity logged yet.</Text>
                 )}
             </Card>
-        </FadeInView>
-
-        <FadeInView delay={300}>
-          <Card>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6 }}>Audio boosts</Text>
-            <Text style={{ color: COLORS.textSecondary, marginBottom: SPACING.m }}>
-              Motivation and focus-friendly tracks. Curated free sources.
-            </Text>
-            <Button
-              title="Open audio"
-              onPress={() => navigation.navigate('Audio')}
-              style={{ marginBottom: 0 }}
-            />
-          </Card>
         </FadeInView>
 
         <FadeInView delay={350}>

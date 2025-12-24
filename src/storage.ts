@@ -132,8 +132,13 @@ export const storage = {
     // Check Today (i=0)
     const today = new Date();
     const todayUsage = usageByDay[dayKey(today)] || 0;
-    if (todayUsage >= target) {
+    
+    // For streak: count days where user stayed UNDER or AT the daily limit
+    if (todayUsage <= target) {
       streak++;
+    } else {
+      // If today exceeded limit, streak is broken
+      return 0;
     }
 
     // Check Past Days (i=1 to 365)
@@ -142,7 +147,8 @@ export const storage = {
         d.setDate(d.getDate() - i);
         const usage = usageByDay[dayKey(d)] || 0;
         
-        if (usage >= target) {
+        // Count days staying under/at limit
+        if (usage <= target) {
             streak++;
         } else {
             break; // Streak broken
@@ -197,6 +203,26 @@ export const storage = {
       const existing = await AsyncStorage.getItem(KEY);
       return existing ? JSON.parse(existing) : [];
     } catch (e) { return []; }
+  },
+
+  // Analytics: Get feelings breakdown with durations
+  getFeelingsAnalytics: async (): Promise<Record<string, number>> => {
+    try {
+      const sessions = await storage.getSessions?.() ?? [];
+      const completedSessions = sessions.filter(s => s.isComplete && s.reason && s.durationMinutes);
+      
+      const feelingsDurations: Record<string, number> = {};
+      completedSessions.forEach(session => {
+        const feeling = session.reason || 'Unknown';
+        const duration = session.durationMinutes || 0;
+        feelingsDurations[feeling] = (feelingsDurations[feeling] || 0) + duration;
+      });
+      
+      return feelingsDurations;
+    } catch (e) {
+      console.error('Error getting feelings analytics:', e);
+      return {};
+    }
   },
 
   clearAll: async () => {

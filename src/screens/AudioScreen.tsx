@@ -1,6 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAudioPlayer } from 'expo-audio';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button, Card, ScreenContainer } from '../components/UiComponents';
 import { storage } from '../storage';
@@ -94,32 +93,9 @@ const TRACKS = [
 
 export const AudioScreen: React.FC<Props> = ({ navigation }) => {
   const [currentTrack, setCurrentTrack] = useState(TRACKS[0]);
-  const [isPlaying, setIsPlaying] = useState(false);
   
-  // expo-audio player
-  const player = useAudioPlayer(currentTrack.url);
-
-  useEffect(() => {
-    // When track changes, replace the source but DO NOT auto-play.
-    if (player) {
-       player.replace(currentTrack.url);
-       player.pause();
-       setIsPlaying(false);
-    }
-  }, [currentTrack, player]);
-
   const handleTrackSelect = (track: typeof TRACKS[0]) => {
     setCurrentTrack(track);
-  };
-
-  const togglePlayback = () => {
-    if (player.playing) {
-      player.pause();
-      setIsPlaying(false);
-    } else {
-      player.play();
-      setIsPlaying(true);
-    }
   };
 
   return (
