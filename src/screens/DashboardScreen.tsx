@@ -1,16 +1,26 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useCallback, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router'; // Added useLocalSearchParams
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { AppLogo, Button, Card, FadeInView, ScreenContainer } from '../components/UiComponents';
 import { storage } from '../storage';
-import { COLORS, SPACING } from '../theme';
-import { RootStackParamList, UserStats, WeeklyPlan } from '../types';
+import { COLORS, SPACING, TYPOGRAPHY } from '../theme'; // Added TYPOGRAPHY
+import { RootStackParamList, SessionEvent, UserStats, WeeklyPlan } from '../types'; // Added SessionEvent
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
-export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
-  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
+const DAILY_NOTES = [
+    "Energy flows where attention goes.",
+    "The way we spend our days is the way we spend our lives.",
+    "Focus is a muscle. Today is a training session.",
+    "Your attention is your most valuable asset. Spend it wisely.",
+    "Distraction is the enemy of depth. Stay intentional.",
+    "Small wins lead to big changes. Keep going.",
+    "Mindfulness is not about being perfect, but about being present."
+];
+
+export const DashboardScreen = ({ navigation }: any) => { // Changed type to any
+  const [plan, setPlan] = useState<WeeklyPlan | null>(null); // Kept for plan.nightBoundary and plan.goal
   const [userStats, setUserStats] = useState<UserStats>({ xp: 0, level: 1 });
   const [todayUsage, setTodayUsage] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -18,7 +28,17 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [weekUsage, setWeekUsage] = useState(0);
   const [perAppUsage, setPerAppUsage] = useState<Record<string, number>>({});
   const [focusQuality, setFocusQuality] = useState(100);
+  const [sessions, setSessions] = useState<SessionEvent[]>([]); // Added
+  const [targetMinutes, setTargetMinutes] = useState(45); // Added
+  const [isLoading, setIsLoading] = useState(true); // Added
   
+  const { sessionId: activePointer } = useLocalSearchParams(); // Added
+
+  const getDailyNote = () => { // Added
+    const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+    return DAILY_NOTES[day % DAILY_NOTES.length];
+  };
+
   const defaultPlan: WeeklyPlan = {
     apps: [],
     goal: 'balance',
@@ -26,107 +46,109 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     nightBoundary: '22:00',
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      const loadData = async () => {
-        try {
-          // Load data in parallel, including negative usage
-          const [sessions = [], storedPlan, storedStreak, activePointer, stats, negativeUsage = []] = await Promise.all([
-            storage.getSessions?.() ?? [],
-            storage.getPlan?.(),
-            storage.getStreak?.(),
-            storage.getActiveSessionId?.(),
-            storage.getUserStats(),
-            storage.getAppUsage?.() ?? [] // Unified: Negative
-          ]);
+  const loadData = async () => { // Extracted from useFocusEffect
+    try {
+      const allSessions = await storage.getSessions() ?? []; // Changed to direct call and added default
+      const stats = await storage.getUserStats();
+      const storedPlan = await storage.getPlan(); // Kept for plan details
+      const negativeUsage = await storage.getAppUsage() ?? []; // Changed to direct call and added default
+      
+      if (storedPlan) {
+          setTargetMinutes(storedPlan.dailyLimitMinutes || 45);
+          setPlan(storedPlan); // Keep plan for other details
+      } else {
+          setTargetMinutes(defaultPlan.dailyLimitMinutes);
+          setPlan(defaultPlan);
+      }
+      
+      setUserStats(stats);
+      setSessions(allSessions);
 
-          if (!isActive) return;
+      const totalSessions = allSessions.length;
+      const completedSessions = allSessions.filter(s => s.isComplete).length;
+      setFocusQuality(totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 100);
 
-          const planCandidate = storedPlan ?? defaultPlan;
-          setPlan(planCandidate);
-          setUserStats(stats);
+      const todayStr = new Date().toDateString();
+      const NEGATIVE_APPS = ['Twitter', 'Instagram', 'TikTok', 'YouTube', 'Facebook', 'Reddit', 'Gaming', 'Other'];
+      
+      // Calculate Today Usage (Positive sessions only)
+      const positiveToday = allSessions
+        .filter(s => {
+            const isToday = new Date(s.startTime).toDateString() === todayStr;
+            const isNotNegative = !NEGATIVE_APPS.includes(s.activityType || '');
+            return isToday && s.isComplete && isNotNegative;
+        })
+        .reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
+      
+      setTodayUsage(positiveToday); 
 
-          // Focus Quality Calculation
-          const totalSessions = sessions.length;
-          const completedSessions = sessions.filter(s => s.isComplete).length;
-          setFocusQuality(totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 100);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      sevenDaysAgo.setHours(0,0,0,0);
+      
+      // Weekly Stats (Positive sessions only)
+      const weeklyPositive = allSessions
+        .filter(s => {
+          const d = new Date(s.startTime);
+          d.setHours(0,0,0,0);
+          const isRecent = d >= sevenDaysAgo;
+          const isNotNegative = !NEGATIVE_APPS.includes(s.activityType || '');
+          return isRecent && s.isComplete && isNotNegative;
+        })
+        .reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
 
-          const todayStr = new Date().toDateString();
-          // Calculate Today Usage (Positive)
-          const positiveToday = sessions
-            .filter(s => new Date(s.startTime).toDateString() === todayStr && s.isComplete)
-            .reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
-          
-          setTodayUsage(positiveToday); 
+      setWeekUsage(weeklyPositive);
+      
+      const appUsage: Record<string, number> = {};
+      
+      // Positive apps
+      allSessions
+        .filter(s => s.isComplete && new Date(s.startTime) >= sevenDaysAgo)
+        .forEach(s => {
+          const key = s.activityType || s.appId || 'Focus';
+          appUsage[key] = (appUsage[key] || 0) + (s.durationMinutes || 0);
+        });
+        
+      // Negative apps (from slip-up sessions)
+      negativeUsage
+         .filter((u: any) => new Date(u.timestamp) >= sevenDaysAgo)
+         .forEach((u: any) => {
+             const key = u.appId;
+             appUsage[key] = (appUsage[key] || 0) + (u.durationMinutes || 0);
+         });
 
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-          
-          // Weekly Stats (Positive)
-          const weeklyPositive = sessions
-            .filter(s => {
-              const d = new Date(s.startTime);
-              d.setHours(0,0,0,0);
-              return d >= sevenDaysAgo && s.isComplete;
-            })
-            .reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
+      setPerAppUsage(appUsage);
 
-          setWeekUsage(weeklyPositive);
-          
-          const appUsage: Record<string, number> = {};
-          
-          // Positive apps
-          sessions
-            .filter(s => s.isComplete && new Date(s.startTime) >= sevenDaysAgo)
-            .forEach(s => {
-              const key = s.activityType || s.appId || 'Focus';
-              appUsage[key] = (appUsage[key] || 0) + (s.durationMinutes || 0);
-            });
-            
-          // Negative apps (from slip-up sessions)
-          negativeUsage
-             .filter((u: any) => new Date(u.timestamp) >= sevenDaysAgo)
-             .forEach((u: any) => {
-                 const key = u.appId; // Use app name directly (Twitter, Instagram, etc.)
-                 appUsage[key] = (appUsage[key] || 0) + (u.durationMinutes || 0);
-             });
+      const activeFromPointer = allSessions.find(s => s.id === activePointer && s.isComplete !== true);
+      const active = activeFromPointer ?? allSessions
+        .filter(s => s.isComplete !== true)
+        .sort((a, b) => (b.startTime || 0) - (a.startTime || 0))[0];
+      setActiveSessionId(active?.id ?? null);
+      // Removed storage.setActiveSessionId calls as per new logic
 
-          setPerAppUsage(appUsage);
+      // Streak Logic
+      const calculatedStreak = await storage.getStreak();
+      setStreak(calculatedStreak);
+    } catch (err) {
+      console.error('Failed to load dashboard data', err);
+      // Reset states on error
+      setPlan(defaultPlan);
+      setTodayUsage(0);
+      setStreak(0);
+      setActiveSessionId(null);
+      setTargetMinutes(defaultPlan.dailyLimitMinutes);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-          const activeFromPointer = sessions.find(s => s.id === activePointer && s.isComplete !== true);
-          const active = activeFromPointer ?? sessions
-            .filter(s => s.isComplete !== true)
-            .sort((a, b) => (b.startTime || 0) - (a.startTime || 0))[0];
-          setActiveSessionId(active?.id ?? null);
-          if (active?.id && !activePointer) {
-            storage.setActiveSessionId?.(active.id);
-          }
-          if (!active) {
-            storage.setActiveSessionId?.(null);
-          }
+  useEffect(() => { // Replaced useFocusEffect with useEffect
+    loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, [activePointer]); // Dependency array updated
 
-          // Streak Logic
-          const calculatedStreak = positiveToday >= (planCandidate.dailyLimitMinutes || 15) ? 1 : 0;
-          setStreak((storedStreak ?? calculatedStreak) as number);
-        } catch (err) {
-          console.error('Failed to load dashboard data', err);
-          if (isActive) {
-            setPlan(defaultPlan);
-            setTodayUsage(0);
-            setStreak(0);
-            setActiveSessionId(null);
-          }
-        }
-      };
-      loadData();
-      return () => {
-        isActive = false;
-      };
-    }, [navigation])
-  );
-
-  if (!plan) {
+  if (isLoading || !plan) { // Added isLoading check
     return (
       <ScreenContainer>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -136,7 +158,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
-  const targetMinutes = plan.dailyLimitMinutes;
+  // const targetMinutes = plan.dailyLimitMinutes; // Now a state variable
   const remainingToGoal = Math.max(0, targetMinutes - todayUsage);
   const progress = targetMinutes > 0
     ? Math.min(100, (todayUsage / targetMinutes) * 100)
@@ -198,14 +220,23 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
            
            <View style={{ height: 12, backgroundColor: '#334155', borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
               <View style={{ 
-                width: `${Math.min(100, Math.max(0, ((userStats.xp - (100 * Math.pow(userStats.level - 1, 2))) / ((100 * Math.pow(userStats.level, 2)) - (100 * Math.pow(userStats.level - 1, 2))) * 100)))}%`, 
+                width: `${Math.min(100, Math.max(0, userStats.xp === 0 ? 0 : ((userStats.xp - (100 * Math.pow(userStats.level - 1, 2))) / ((100 * Math.pow(userStats.level, 2)) - (100 * Math.pow(userStats.level - 1, 2))) * 100)))}%`, 
                 height: '100%', 
                 backgroundColor: '#FCD34D' 
               }} />
            </View>
-           <Text style={{ color: '#94A3B8', fontSize: 12, textAlign: 'right' }}>
-             {Math.floor(userStats.xp)} / {100 * Math.pow(userStats.level, 2)} XP to next level
-           </Text>
+           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ color: '#94A3B8', fontSize: 11 }}>{userStats.xp} XP total</Text>
+              <Text style={{ color: '#94A3B8', fontSize: 11 }}>Next level at {100 * Math.pow(userStats.level, 2)} XP</Text>
+           </View>
+        </Card>
+
+        {/* Daily Note Card */}
+        <Card style={{ backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: COLORS.border, marginBottom: SPACING.l }}>
+            <Text style={[TYPOGRAPHY.label, { color: COLORS.primary }]}>Daily Quote</Text>
+            <Text style={[TYPOGRAPHY.body, { fontStyle: 'italic', fontSize: 15, opacity: 0.9 }]}>
+                "{getDailyNote()}"
+            </Text>
         </Card>
 
         <Card style={{ paddingVertical: 28, backgroundColor: '#0F172A', borderWidth: 0, overflow: 'hidden' }}>
@@ -380,17 +411,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             </Card>
         </FadeInView>
 
-        <FadeInView delay={350}>
-          <Card style={{ backgroundColor: COLORS.surface }}>
-            <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Daily note
-            </Text>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 }}>
-              Attention is your most valuable currency.
-            </Text>
-            <Text style={{ color: COLORS.textTertiary }}>- Unscroll mantra</Text>
-          </Card>
-        </FadeInView>
+
 
       </ScrollView>
     </ScreenContainer>

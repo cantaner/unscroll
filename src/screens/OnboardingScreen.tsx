@@ -105,7 +105,8 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       goal,
       dailyLimitMinutes: parseInt(limit) || 45,
       nightBoundary: boundary,
-      bedtime: targetBedtime
+      bedtime: targetBedtime,
+      createdAt: Date.now()
     };
     await storage.savePlan(plan);
     navigation.navigate('SignUp');
@@ -194,10 +195,11 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
                             style={{ 
                                 width: '31%', padding: 8, borderRadius: 12, borderWidth: 1, 
                                 borderColor: isSel ? COLORS.primary : COLORS.border,
-                                backgroundColor: isSel ? COLORS.primary : '#FFF', alignItems: 'center'
+                                backgroundColor: isSel ? COLORS.primary : COLORS.surface, 
+                                alignItems: 'center'
                             }}>
-                            <Text style={{ fontSize: 16, fontWeight: '700', color: isSel ? '#FFF' : COLORS.textPrimary }}>{opt}m</Text>
-                            <Text style={{ fontSize: 11, color: isSel ? '#D6D3D1' : COLORS.textSecondary }}>{labels[i]}</Text>
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: isSel ? '#0F172A' : COLORS.textPrimary }}>{opt}m</Text>
+                            <Text style={{ fontSize: 11, color: isSel ? '#0F172A' : COLORS.textSecondary }}>{labels[i]}</Text>
                         </TouchableOpacity>
                     );
                 })}
@@ -207,12 +209,23 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
             {/* Night Boundary Section */}
             <Card>
               <Text style={TYPOGRAPHY.label}>Night Boundary</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                  <Text style={{ marginRight: 8, color: COLORS.textSecondary }}>I usually sleep at</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, justifyContent: 'space-between', backgroundColor: COLORS.background, padding: 12, borderRadius: 12 }}>
+                  <Text style={{ color: COLORS.textSecondary }}>I usually sleep at:</Text>
                   <TextInput 
                     value={targetBedtime} 
-                    onChangeText={(t) => { setTargetBedtime(t); if(t.length===5) calculateBoundaries(t); }} 
-                    style={{ borderBottomWidth: 1, fontWeight: '600', fontSize: 18, textAlign: 'center', width: 60 }} 
+                    maxLength={5}
+                    keyboardType="numbers-and-punctuation"
+                    onChangeText={(t) => { 
+                        // Simple formatter HH:MM
+                        let clean = t.replace(/[^0-9]/g, '');
+                        if (clean.length > 4) clean = clean.substring(0, 4);
+                        if (clean.length > 2) clean = clean.substring(0, 2) + ':' + clean.substring(2);
+                        setTargetBedtime(clean); 
+                        if(clean.length===5) calculateBoundaries(clean); 
+                    }} 
+                    placeholder="23:00"
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={{ fontWeight: '700', fontSize: 20, textAlign: 'center', width: 80, color: COLORS.primary, borderBottomWidth: 1, borderColor: COLORS.primary }} 
                   />
               </View>
 
@@ -220,28 +233,36 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
                  Blue light suppresses melatonin. Select a detachment window:
               </Text>
 
-              <View style={{ gap: 8 }}>
+              <View style={{ gap: 10 }}>
                 {[
-                    { val: boundaryOptions[0], label: "Cognitive Detachment", desc: "90m before bed. Optimal for deep sleep." },
-                    { val: boundaryOptions[1], label: "Melatonin Ramp-up", desc: "60m before bed. Recommended." },
-                    { val: boundaryOptions[2], label: "Wind Down", desc: "30m before bed. Good start." },
+                    { val: boundaryOptions[0], label: "Cognitive Detachment", desc: "90m before bed. Optimal." },
+                    { val: boundaryOptions[1], label: "Melatonin Ramp-up", desc: "60m before bed. Balanced." },
+                    { val: boundaryOptions[2], label: "Wind Down", desc: "30m before bed. Easy start." },
                 ].map((opt, i) => {
                     const isSel = boundary === opt.val;
                     return (
                         <TouchableOpacity key={i} onPress={() => setBoundary(opt.val)}
+                            activeOpacity={0.7}
                             style={{ 
                                 flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-                                padding: 12, borderRadius: 12, borderWidth: 1,
+                                padding: 16, borderRadius: 16, borderWidth: 2,
                                 borderColor: isSel ? COLORS.primary : COLORS.border,
-                                backgroundColor: isSel ? '#F5F5F4' : '#FFF'
+                                backgroundColor: isSel ? 'rgba(45, 212, 191, 0.1)' : COLORS.surface
                             }}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.textPrimary }}>{opt.val}</Text>
-                                <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>{opt.label}</Text>
+                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <View style={{ 
+                                    width: 20, height: 20, borderRadius: 10, borderWidth: 2, 
+                                    borderColor: isSel ? COLORS.primary : COLORS.textTertiary,
+                                    alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    {isSel && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary }} />}
+                                </View>
+                                <View>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: isSel ? COLORS.primary : COLORS.textPrimary }}>{opt.label}</Text>
+                                    <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>{opt.val}</Text>
+                                </View>
                             </View>
-                            <View style={{ width: 140 }}>
-                                <Text style={{ fontSize: 11, color: COLORS.textTertiary, textAlign: 'right' }}>{opt.desc}</Text>
-                            </View>
+                            <Text style={{ fontSize: 12, color: isSel ? COLORS.textPrimary : COLORS.textTertiary, fontStyle: 'italic' }}>{opt.desc}</Text>
                         </TouchableOpacity>
                     );
                 })}

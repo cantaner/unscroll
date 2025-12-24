@@ -11,6 +11,7 @@ export interface WeeklyPlan {
   dailyLimitMinutes: number;
   nightBoundary: string; // HH:mm
   bedtime?: string; // HH:mm
+  createdAt?: number; // timestamp
 }
 
 export interface SessionEvent {

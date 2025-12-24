@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, ScrollView, Text, View } from 'react-native';
 import {
     Badge,
     Button,
@@ -11,10 +11,23 @@ import {
     ScreenContainer,
     Separator
 } from '../components/UiComponents';
+import { storage } from '../storage';
 import { COLORS, SPACING, TYPOGRAPHY } from '../theme';
 
 export const SettingsScreen = ({ navigation }: any) => {
   const handlePress = (action: string) => {
+    if (action === 'Send Feedback') {
+        Linking.openURL('mailto:info@rulesimple.com?subject=Unscroll Feedback');
+        return;
+    }
+    if (action === 'Terms & Privacy') {
+        Alert.alert(
+            "Terms & Privacy",
+            "Unscroll is dedicated to your privacy. We do not sell your data. Your tracked usage and sessions are stored locally on your device or in your private account if created.\n\nBy using this app, you agree to focus on what matters and use your time intentionally.\n\nFull terms available at rulesimple.com",
+            [{ text: "Close" }]
+        );
+        return;
+    }
     alert(`${action} coming soon.`);
   };
 
@@ -31,24 +44,6 @@ export const SettingsScreen = ({ navigation }: any) => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xl }} showsVerticalScrollIndicator={false}>
-
-        {/* App Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>App Information</CardTitle>
-            <CardDescription>Version and build details</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.s, marginBottom: SPACING.s }}>
-              <Text style={[TYPOGRAPHY.body, { flex: 1 }]}>Version</Text>
-              <Badge variant="default">1.0.0</Badge>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.s }}>
-              <Text style={[TYPOGRAPHY.body, { flex: 1 }]}>Build</Text>
-              <Badge variant="secondary">Positive Focus</Badge>
-            </View>
-          </CardContent>
-        </Card>
 
         {/* Account Card */}
         <Card>
@@ -86,18 +81,7 @@ export const SettingsScreen = ({ navigation }: any) => {
                   Notifications
                 </Text>
                 <Text style={{ fontSize: 14, color: COLORS.textSecondary }}>
-                  Receive reminders and updates
-                </Text>
-              </View>
-              
-              <Separator />
-              
-              <View>
-                <Text style={[TYPOGRAPHY.body, { marginBottom: SPACING.xs, fontWeight: '600' }]}>
-                  Theme
-                </Text>
-                <Text style={{ fontSize: 14, color: COLORS.textSecondary }}>
-                  Currently using dark mode
+                  Receive smart reminders to stay on track (Configured in system settings)
                 </Text>
               </View>
               
@@ -107,9 +91,30 @@ export const SettingsScreen = ({ navigation }: any) => {
                 <Text style={[TYPOGRAPHY.body, { marginBottom: SPACING.xs, fontWeight: '600' }]}>
                   Data & Storage
                 </Text>
-                <Text style={{ fontSize: 14, color: COLORS.textSecondary }}>
-                  Manage app data and cache
+                <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.s }}>
+                  Manage app data and cache. All data is encrypted locally.
                 </Text>
+                <Button 
+                  title="Reset All Data" 
+                  onPress={() => {
+                    Alert.alert(
+                      "Reset Data",
+                      "Are you sure? This will delete all your sessions, stats, and settings. This cannot be undone.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { 
+                          text: "Delete & Reset", 
+                          style: "destructive",
+                          onPress: async () => {
+                            await storage.clearAll();
+                            Alert.alert("Reset Complete", "Data cleared. Please restart the app.");
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                  style={{ backgroundColor: '#EF4444' }}
+                />
               </View>
             </View>
           </CardContent>
@@ -119,22 +124,21 @@ export const SettingsScreen = ({ navigation }: any) => {
         <Card>
           <CardHeader>
             <CardTitle>About Unscroll</CardTitle>
-            <CardDescription>Learn more about our mission</CardDescription>
+            <CardDescription>Our mission</CardDescription>
           </CardHeader>
           <CardContent>
             <Text style={[TYPOGRAPHY.body, { marginBottom: SPACING.m, lineHeight: 22 }]}>
-              Unscroll helps you reclaim your attention and build healthier digital habits through mindful tracking and positive reinforcement.
+              Unscroll is a tool to help you reclaim your attention and build healthier digital habits.
             </Text>
             <View style={{ flexDirection: 'row', gap: SPACING.s, flexWrap: 'wrap' }}>
-              <Badge variant="outline">Mindfulness</Badge>
               <Badge variant="outline">Focus</Badge>
-              <Badge variant="outline">Well-being</Badge>
+              <Badge variant="outline">Intentionality</Badge>
             </View>
           </CardContent>
         </Card>
 
         {/* Support Card */}
-        <Card style={{ marginBottom: 0 }}>
+        <Card>
           <CardHeader>
             <CardTitle>Support</CardTitle>
             <CardDescription>Get help and provide feedback</CardDescription>
@@ -162,6 +166,13 @@ export const SettingsScreen = ({ navigation }: any) => {
             </Button>
           </CardContent>
         </Card>
+
+        {/* App Info Card at bottom */}
+        <View style={{ marginTop: SPACING.l, alignItems: 'center', opacity: 0.5 }}>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Unscroll v1.0.0 (Build 1)</Text>
+            <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginTop: 4 }}>© 2025 RuleSimple</Text>
+        </View>
+
       </ScrollView>
     </ScreenContainer>
   );

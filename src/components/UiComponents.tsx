@@ -302,9 +302,10 @@ interface SelectionItemProps {
   subLabel?: string;
   selected: boolean;
   onPress: () => void;
+  image?: string;
 }
 
-export const SelectionItem: React.FC<SelectionItemProps> = ({ label, subLabel, selected, onPress }) => {
+export const SelectionItem: React.FC<SelectionItemProps> = ({ label, subLabel, selected, onPress, image }) => {
   const [pressed, setPressed] = React.useState(false);
 
   return (
@@ -329,9 +330,17 @@ export const SelectionItem: React.FC<SelectionItemProps> = ({ label, subLabel, s
       accessibilityLabel={label}
       accessibilityState={{ selected }}
     >
-      <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: '600', color: selected ? COLORS.primary : COLORS.textPrimary }}>{label}</Text>
-          {subLabel && <Text style={{ fontSize: 13, marginTop: 2, color: COLORS.textSecondary }}>{subLabel}</Text>}
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.m }}>
+          {image && (
+            <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: COLORS.surfaceHighlight, overflow: 'hidden' }}>
+              {/* Using a simple colored square as placeholder since we don't want to break on image load failures */}
+              <View style={{ flex: 1, backgroundColor: selected ? COLORS.primary : COLORS.textTertiary, opacity: 0.3 }} />
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: selected ? COLORS.primary : COLORS.textPrimary }}>{label}</Text>
+              {subLabel && <Text style={{ fontSize: 13, marginTop: 2, color: COLORS.textSecondary }}>{subLabel}</Text>}
+          </View>
       </View>
       {selected && (
         <View style={{ 

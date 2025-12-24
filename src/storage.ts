@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './lib/supabase';
 import { SessionEvent, WeeklyPlan } from './types';
 
 const PLAN_KEY = 'unhook_plan';
@@ -50,6 +51,20 @@ export const storage = {
         // Ideally trigger a modal or toast here, but for now just save state
       }
       await storage.saveUserStats(stats);
+
+      // Sync with Supabase if logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('user_stats')
+          .upsert({
+            user_id: user.id,
+            xp: stats.xp,
+            level: stats.level,
+            modified_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+      }
+
       return stats;
     } catch (e) { console.error(e); return { xp: 0, level: 1 }; }
   },
@@ -66,6 +81,22 @@ export const storage = {
         await AsyncStorage.removeItem(ACTIVE_SESSION_KEY);
       } else {
         await AsyncStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+      }
+
+      // Sync with Supabase if logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+          await supabase
+            .from('sessions')
+            .upsert({
+                id: session.id,
+                user_id: user.id,
+                start_time: new Date(session.startTime).toISOString(),
+                duration_minutes: session.durationMinutes,
+                activity_type: session.activityType,
+                is_complete: session.isComplete,
+                reason: session.reason,
+            });
       }
     } catch (e) { console.error(e); }
   },
@@ -134,17 +165,28 @@ export const storage = {
     const todayUsage = usageByDay[dayKey(today)] || 0;
     
     // For streak: count days where user stayed UNDER or AT the daily limit
-    if (todayUsage <= target) {
+    // AND has at least some tracked usage for today to start the streak
+    if (todayUsage > 0 && todayUsage <= target) {
       streak++;
-    } else {
+    } else if (todayUsage > target) {
       // If today exceeded limit, streak is broken
       return 0;
     }
+    // If todayUsage is 0, we don't increment streak for today yet, 
+    // but we can still count past days if they existed.
+
+    // Determine startDate (when plan was created, or fallback to today if new)
+    const startDate = plan.createdAt ? new Date(plan.createdAt) : new Date();
+    startDate.setHours(0,0,0,0);
 
     // Check Past Days (i=1 to 365)
     for (let i = 1; i < 365; i++) {
         const d = new Date();
         d.setDate(d.getDate() - i);
+        
+        // Stop if we go before the user joined
+        if (d < startDate) break;
+
         const usage = usageByDay[dayKey(d)] || 0;
         
         // Count days staying under/at limit
@@ -227,7 +269,10 @@ export const storage = {
 
   clearAll: async () => {
     try {
-      await AsyncStorage.multiRemove([PLAN_KEY, SESSIONS_KEY, REFLECTIONS_KEY, ACTIVE_SESSION_KEY, GOOGLE_USER_KEY, GOOGLE_TOKEN_KEY, 'unhook_app_usage']);
+      await AsyncStorage.multiRemove([
+        PLAN_KEY, SESSIONS_KEY, REFLECTIONS_KEY, ACTIVE_SESSION_KEY, 
+        GOOGLE_USER_KEY, GOOGLE_TOKEN_KEY, 'unhook_app_usage', USER_STATS_KEY
+      ]);
     } catch (e) { console.error(e); }
   }
 };
