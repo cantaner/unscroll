@@ -43,6 +43,7 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      // Let makeRedirectUri handle the environment dynamically
       const redirectTo = makeRedirectUri({
         scheme: 'unscroll',
         path: 'auth/callback',
