@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Animated, Image, Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, GLOBAL_STYLES, SPACING } from '../theme';
 
@@ -348,6 +348,108 @@ export const SelectionItem: React.FC<SelectionItemProps> = ({ label, subLabel, s
           backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' 
         }}>
           <Text style={{ color: COLORS.background, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+};
+
+// --- Accordion Component ---
+interface AccordionProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+export const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: isOpen ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false, // Height and opacity need false
+    }).start();
+  }, [isOpen]);
+
+  const height = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 250], // Approximate max height or use layout
+  });
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
+
+  const rotate = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
+
+  return (
+    <Card style={{ padding: 0, overflow: 'hidden', marginBottom: SPACING.s }}>
+      <Pressable 
+        onPress={() => setIsOpen(!isOpen)}
+        style={{ padding: SPACING.m, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.textPrimary, flex: 1 }}>{title}</Text>
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <Text style={{ fontSize: 18, color: COLORS.primary }}>▶</Text>
+        </Animated.View>
+      </Pressable>
+      <Animated.View style={{ height, opacity, paddingHorizontal: SPACING.m }}>
+        <View style={{ paddingTop: 0, paddingBottom: SPACING.m }}>
+          {children}
+        </View>
+      </Animated.View>
+    </Card>
+  );
+};
+
+// --- Avatar Component ---
+interface AvatarProps {
+  source?: string;
+  size?: number;
+  initials?: string;
+  onPress?: () => void;
+}
+
+export const Avatar: React.FC<AvatarProps> = ({ source, size = 80, initials, onPress }) => {
+  const isImage = source?.startsWith('http') || source?.startsWith('file') || source?.startsWith('data:');
+  const isEmoji = source && !isImage && source.length <= 2;
+
+  return (
+    <Pressable onPress={onPress} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ 
+        width: size, 
+        height: size, 
+        borderRadius: size / 2, 
+        backgroundColor: COLORS.surfaceHighlight,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      }}>
+        {isImage ? (
+            <Image source={{ uri: source }} style={{ width: '100%', height: '100%' }} />
+        ) : isEmoji ? (
+            <Text style={{ fontSize: size * 0.4 }}>{source}</Text>
+        ) : (
+            <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: COLORS.primary }}>
+              {initials || 'US'}
+            </Text>
+        )}
+      </View>
+      {onPress && (
+        <View style={{ 
+          position: 'absolute', bottom: 0, right: 0, 
+          backgroundColor: COLORS.primary, width: size * 0.3, height: size * 0.3, 
+          borderRadius: size * 0.15, alignItems: 'center', justifyContent: 'center',
+          borderWidth: 2, borderColor: COLORS.background
+        }}>
+          <Text style={{ color: 'white', fontSize: size * 0.2 }}>✎</Text>
         </View>
       )}
     </Pressable>

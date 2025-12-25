@@ -82,32 +82,41 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleActivitySelect = (activity: string) => {
     setSelectedActivity(activity);
-    setStep('breathe');
+    if (intention === 'positive') {
+      // Skip breathing for positive sessions
+      handleStartImmediately(activity);
+    } else {
+      setStep('breathe');
+    }
+  };
+
+  const handleStartImmediately = async (activityOverride?: string) => {
+    const isPositive = intention === 'positive';
+    const a = activityOverride || selectedActivity;
+    const session: SessionEvent = {
+        id: Date.now().toString(),
+        startTime: Date.now(),
+        appId: isPositive ? 'focus' : a,
+        activityType: a,
+        reason: 'intentional',
+        isComplete: false
+    };
+
+    await storage.saveSession(session);
+
+    if (!isPositive) {
+        await storage.logAppUsage({
+            appId: a,
+            durationMinutes: 0,
+            timestamp: Date.now()
+        });
+    }
+
+    navigation.replace('ActiveSession', { sessionId: session.id });
   };
 
   const handleStart = async () => {
-    const isPositive = intention === 'positive';
-    const session: SessionEvent = {
-      id: Date.now().toString(),
-      startTime: Date.now(),
-      appId: isPositive ? 'focus' : selectedActivity,
-      activityType: selectedActivity,
-      reason: 'intentional',
-      isComplete: false
-    };
-    
-    await storage.saveSession(session);
-    
-    // For negative sessions, log as app usage (slip-up)
-    if (!isPositive) {
-      await storage.logAppUsage({
-        appId: selectedActivity,
-        durationMinutes: 0, // Will be calculated on session end
-        timestamp: Date.now()
-      });
-    }
-    
-    navigation.replace('ActiveSession', { sessionId: session.id });
+    await handleStartImmediately();
   };
 
   return (
@@ -253,7 +262,10 @@ export const PauseScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
 
           <Text style={[TYPOGRAPHY.h2, { textAlign: 'center', paddingHorizontal: SPACING.l, fontSize: 20 }]}>
-            Preparing for {selectedActivity}...
+            Take a moment before you {selectedActivity.toLowerCase()}...
+          </Text>
+          <Text style={{ textAlign: 'center', color: COLORS.textSecondary, marginTop: 8, paddingHorizontal: 40 }}>
+            Centering yourself helps break the cycle of impulsive scrolling.
           </Text>
 
           <View style={{ flex: 1 }} />

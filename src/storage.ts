@@ -9,6 +9,7 @@ const ACTIVE_SESSION_KEY = 'unhook_active_session';
 const GOOGLE_USER_KEY = 'unhook_google_user';
 const GOOGLE_TOKEN_KEY = 'unhook_google_token';
 const USER_STATS_KEY = 'unhook_user_stats';
+const CMS_CACHE_PREFIX = 'unscroll_cms_';
 
 export const storage = {
   savePlan: async (plan: WeeklyPlan) => {
@@ -37,6 +38,22 @@ export const storage = {
     try {
       await AsyncStorage.setItem(USER_STATS_KEY, JSON.stringify(stats));
     } catch (e) { console.error(e); }
+  },
+
+  calculateSessionXP: async (durationMinutes: number, isNegative: boolean): Promise<number> => {
+    if (durationMinutes <= 0) return 0;
+    
+    const streak = await storage.getStreak();
+    const multiplier = 1 + Math.min(0.5, streak * 0.05);
+
+    if (isNegative) {
+      // Deduct XP for slip-ups (5 XP per minute)
+      return -Math.ceil(durationMinutes * 5);
+    } else {
+      // Award XP for positive sessions (10 XP per minute + streak bonus)
+      const baseXP = durationMinutes * 10;
+      return Math.round(Math.max(10, baseXP * multiplier));
+    }
   },
 
   addXP: async (amount: number) => {
@@ -247,24 +264,62 @@ export const storage = {
     } catch (e) { return []; }
   },
 
-  // Analytics: Get feelings breakdown with durations
-  getFeelingsAnalytics: async (): Promise<Record<string, number>> => {
+  // --- CMS Content (FAQ, Terms, About) ---
+  getCMSContent: async (slug: string): Promise<{ title: string, content: string } | null> => {
     try {
-      const sessions = await storage.getSessions?.() ?? [];
-      const completedSessions = sessions.filter(s => s.isComplete && s.reason && s.durationMinutes);
+      // 1. Check Cache
+      const cacheKey = `${CMS_CACHE_PREFIX}${slug}`;
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+          // Return cached but trigger background refresh
+          storage.refreshCMSCache(slug); 
+          return JSON.parse(cached);
+      }
+
+      // 2. Fetch from DB
+      const { data, error } = await supabase
+        .from('cms_content')
+        .select('*')
+        .eq('id', slug)
+        .single();
       
-      const feelingsDurations: Record<string, number> = {};
-      completedSessions.forEach(session => {
-        const feeling = session.reason || 'Unknown';
-        const duration = session.durationMinutes || 0;
-        feelingsDurations[feeling] = (feelingsDurations[feeling] || 0) + duration;
-      });
-      
-      return feelingsDurations;
-    } catch (e) {
-      console.error('Error getting feelings analytics:', e);
-      return {};
+      if (error || !data) {
+        return storage.getFallbackCMSContent(slug);
+      }
+
+      // 3. Update Cache
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+      return data;
+    } catch (e) { 
+      return storage.getFallbackCMSContent(slug);
     }
+  },
+
+  refreshCMSCache: async (slug: string) => {
+    try {
+        const { data } = await supabase.from('cms_content').select('*').eq('id', slug).single();
+        if (data) {
+            await AsyncStorage.setItem(`${CMS_CACHE_PREFIX}${slug}`, JSON.stringify(data));
+        }
+    } catch (e) {}
+  },
+
+  getFallbackCMSContent: (slug: string) => {
+    const fallbacks: Record<string, { title: string, content: string }> = {
+        about: {
+            title: 'About Unscroll',
+            content: '### Our Mission\nUnscroll is your digital sanctuary. In an age of infinite scrolls and attention-hijacking algorithms, we help you reclaim your most precious resource: your time.\n\n### The Problem\nApps today are designed to keep you trapped in "doomscrolling" loops. This leads to reduced focus, increased anxiety, and a feeling of lost days.\n\n### Our Solution\nBy introducing intentional pauses and a reward system for focus, Unscroll retrains your brain to use technology as a tool, not a trap.\n\n### Built for Privacy\nYour data stays with you. We prioritize local storage and secure cloud sync, ensuring your habits are your business and no one else’s.'
+        },
+        faq: {
+            title: 'Help Center',
+            content: '### 1. How do I earn XP?\nYou earn 10 XP for every full minute of a Focus session. Streak multipliers (up to +50%) apply if you remain consistent!\n\n### 2. What are "Slip-ups"?\nIf you log time spent on a distracting app, it’s recorded as a Slip-up. This deducts a small amount of XP (5 per min) to keep you accountable.\n\n### 3. How is my streak calculated?\nA streak grows for every consecutive day you log at least one focus session and stay under your daily goal limit.\n\n### 4. Is my data secure?\nYes. We use industry-standard encryption and Supabase for cloud sync. Your data is never sold or shared with advertisers.\n\n### 5. Can I use the app offline?\nAbsolutely. Your sessions are saved locally and will sync to the cloud once you’re back online.\n\n### 6. What happens if I delete my account?\nDeleting your account permanently removes all your history, stats, and profile details from both our servers and your device.\n\n### 7. How do I change my focus goals?\nYou can update your daily limits and intentional categories in the "Plan" section of the app.\n\n### 8. Does Unscroll block other apps?\nUnscroll uses a "soft-blocking" approach by encouraging intentionality. We don’t forcibly lock apps, as we believe true habit change comes from conscious choice.\n\n### 9. Why is there a 5-second breath pause?\nThat pause is designed to break the "impulse loop." It gives your prefrontal cortex a moment to catch up before you dive into a distracting app.\n\n### 10. How do I contact support?\nIf your question isn’t answered here, tap the "Send Message" button below or email us at info@rulesimple.com.'
+        },
+        terms: {
+            title: 'Terms & Privacy',
+            content: '### 1. Acceptance\nBy using Unscroll, you agree to these terms. Our goal is to help you, not exploit you.\n\n### 2. Privacy First\nWe collect only what is necessary: focus durations, app categories, and basic profile info. We do not track keystrokes, messages, or sensitive content.\n\n### 3. Account Security\nYou are responsible for your account credentials. We provide Apple and Google sign-in for maximum security.\n\n### 4. Data Ownership\nYou own your data. You can export or delete it at any time.\n\n### 5. No Warranty\nWhile we strive for perfection, the app is provided "as-is". We are not responsible for any lost productivity or unintended focus gains.'
+        }
+    };
+    return fallbacks[slug] || null;
   },
 
   clearAll: async () => {

@@ -19,6 +19,13 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isOAuthSession, setIsOAuthSession] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsOAuthSession(!!session);
+    });
+  }, []);
 
   // Handle OAuth Redirects
   useEffect(() => {
@@ -29,9 +36,22 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
       }
     };
 
-    const subscription = supabase.auth.onAuthStateChange((event, session) => {
+    const subscription = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+        // Check if user has a profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile && profile.first_name) {
+          navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+        } else {
+          // New user (likely OAuth), show the form for onboarding
+          setView('form');
+          setEmail(session.user.email || '');
+        }
       }
     });
 
@@ -140,55 +160,65 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    const session = (await supabase.auth.getSession()).data.session;
+    const isOAuth = !!session;
+
+    if (!isOAuth && password.length < 8) {
+      Alert.alert('Weak Password', 'Password must be at least 8 characters long.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // 1. Sign up user
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        Alert.alert('Sign Up Error', error.message);
-        return;
+      let userId = session?.user?.id;
+      let dbDob = dob;
+      if (dob) {
+          const parts = dob.split('-');
+          if (parts.length === 3) dbDob = `${parts[2]}-${parts[1]}-${parts[0]}`;
       }
 
-      if (data.user) {
-        // 2. Create profile
+      if (!isOAuth) {
+        // 1. Sign up user
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+        });
+        if (error) throw error;
+        userId = data.user?.id;
+      }
+
+      if (userId) {
+        // 2. Create or Update profile
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([
+          .upsert([
             {
-              id: data.user.id,
+              id: userId,
               first_name: firstName,
               last_name: lastName,
-              dob: dob,
+              dob: dbDob,
               email: email,
             }
-          ]);
+          ], { onConflict: 'id' });
 
-        if (profileError) {
-          Alert.alert('Profile Error', profileError.message);
-          return;
+        if (profileError) throw profileError;
+
+        // 3. Initialize level stats if missing
+        const { data: stats } = await supabase.from('user_stats').select('id').eq('user_id', userId).single();
+        if (!stats) {
+            await supabase
+              .from('user_stats')
+              .insert([{ user_id: userId, xp: 0, level: 1 }]);
         }
 
-        // 3. Initialize level stats
-        await supabase
-          .from('user_stats')
-          .insert([
-            {
-              user_id: data.user.id,
-              xp: 0,
-              level: 1,
-            }
-          ]);
-
-        Alert.alert('Account Created', 'Your account has been successfully created!');
+        Alert.alert(
+            isOAuth ? 'Profile Updated' : 'Account Created', 
+            isOAuth ? 'Your profile is ready!' : 'Your account has been successfully created!'
+        );
         navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
       }
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
     }
@@ -276,7 +306,7 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                   value={dob}
                   onChangeText={setDob}
-                  placeholder="DD/MM/YYYY"
+                  placeholder="DD-MM-YYYY"
                   placeholderTextColor={COLORS.textTertiary}
                   style={{ 
                       backgroundColor: COLORS.surfaceHighlight, padding: 16, borderRadius: 12, fontSize: 16, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border
@@ -299,19 +329,21 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
               />
           </View>
 
-          <View>
-              <Text style={TYPOGRAPHY.label}>Password</Text>
-              <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Min 8 characters"
-                  placeholderTextColor={COLORS.textTertiary}
-                  secureTextEntry
-                  style={{ 
-                      backgroundColor: COLORS.surfaceHighlight, padding: 16, borderRadius: 12, fontSize: 16, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border
-                  }}
-              />
-          </View>
+          {!isOAuthSession && (
+            <View>
+                <Text style={TYPOGRAPHY.label}>Password</Text>
+                <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Min 8 characters"
+                    placeholderTextColor={COLORS.textTertiary}
+                    secureTextEntry
+                    style={{ 
+                        backgroundColor: COLORS.surfaceHighlight, padding: 16, borderRadius: 12, fontSize: 16, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border
+                    }}
+                />
+            </View>
+          )}
       </View>
 
       <Button 

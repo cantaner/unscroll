@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useLocalSearchParams } from 'expo-router'; // Added useLocalSearchParams
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { AppLogo, Button, Card, FadeInView, ScreenContainer } from '../components/UiComponents';
 import { storage } from '../storage';
 import { COLORS, SPACING, TYPOGRAPHY } from '../theme'; // Added TYPOGRAPHY
@@ -207,29 +207,31 @@ export const DashboardScreen = ({ navigation }: any) => { // Changed type to any
           </View>
         </View>
 
-        <Card style={{ marginBottom: SPACING.m, paddingVertical: 16, backgroundColor: '#1E293B', borderWidth: 0 }}>
-           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-             <View>
-                <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>Current Status</Text>
-                <Text style={{ color: '#FCD34D', fontSize: 24, fontWeight: '800' }}>Level {userStats.level}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <Card style={{ marginBottom: SPACING.m, paddingVertical: 16, backgroundColor: '#1E293B', borderWidth: 0 }}>
+             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+               <View>
+                  <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>Current Status</Text>
+                  <Text style={{ color: '#FCD34D', fontSize: 24, fontWeight: '800' }}>Level {userStats.level}</Text>
+               </View>
+               <View style={{ backgroundColor: '#FCD34D22', padding: 8, borderRadius: 20 }}>
+                  <Text style={{ fontSize: 24 }}>🌱</Text>
+               </View>
              </View>
-             <View style={{ backgroundColor: '#FCD34D22', padding: 8, borderRadius: 20 }}>
-                <Text style={{ fontSize: 24 }}>🌱</Text>
+             
+             <View style={{ height: 12, backgroundColor: '#334155', borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
+                <View style={{ 
+                  width: `${Math.min(100, Math.max(0, userStats.xp === 0 ? 0 : ((userStats.xp - (100 * Math.pow(userStats.level - 1, 2))) / ((100 * Math.pow(userStats.level, 2)) - (100 * Math.pow(userStats.level - 1, 2))) * 100)))}%`, 
+                  height: '100%', 
+                  backgroundColor: '#FCD34D' 
+                }} />
              </View>
-           </View>
-           
-           <View style={{ height: 12, backgroundColor: '#334155', borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
-              <View style={{ 
-                width: `${Math.min(100, Math.max(0, userStats.xp === 0 ? 0 : ((userStats.xp - (100 * Math.pow(userStats.level - 1, 2))) / ((100 * Math.pow(userStats.level, 2)) - (100 * Math.pow(userStats.level - 1, 2))) * 100)))}%`, 
-                height: '100%', 
-                backgroundColor: '#FCD34D' 
-              }} />
-           </View>
-           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: '#94A3B8', fontSize: 11 }}>{userStats.xp} XP total</Text>
-              <Text style={{ color: '#94A3B8', fontSize: 11 }}>Next level at {100 * Math.pow(userStats.level, 2)} XP</Text>
-           </View>
-        </Card>
+             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#94A3B8', fontSize: 11 }}>{userStats.xp} XP total</Text>
+                <Text style={{ color: '#94A3B8', fontSize: 11 }}>Next level at {100 * Math.pow(userStats.level, 2)} XP</Text>
+             </View>
+          </Card>
+        </TouchableOpacity>
 
         {/* Daily Note Card */}
         <Card style={{ backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: COLORS.border, marginBottom: SPACING.l }}>

@@ -42,4 +42,8 @@ export type RootStackParamList = {
   ActiveSession: { sessionId: string };
   LogSession: { sessionId: string };
   Settings: undefined;
+  Profile: undefined;
+  FAQ: undefined;
+  Terms: undefined;
+  AboutDetail: undefined;
 };

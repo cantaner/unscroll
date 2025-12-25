@@ -23,6 +23,7 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
   const isNegativeSession = session?.activityType ? NEGATIVE_APPS.includes(session.activityType) : false;
   const feelingsOptions = isNegativeSession ? NEGATIVE_FEELINGS : POSITIVE_FEELINGS;
   const [feeling, setFeeling] = useState(feelingsOptions[0]);
+  const [expectedXP, setExpectedXP] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -33,6 +34,13 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
 
         if (s) {
           setSession(s);
+          const durationSeconds = (Date.now() - s.startTime) / 1000;
+          const duration = Math.floor(durationSeconds / 60);
+          const isNeg = s.activityType ? NEGATIVE_APPS.includes(s.activityType) : false;
+          
+          // Only show XP if session is at least 30 seconds (redundant with Math.floor but keeping for safety)
+          const xp = durationSeconds >= 30 ? await storage.calculateSessionXP(duration, isNeg) : 0;
+          setExpectedXP(xp);
         } else {
           const fallback = await storage.getActiveSession?.();
           if (fallback) {
@@ -54,13 +62,17 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleSave = async () => {
     if (!session) return;
-    const endTime = Date.now();
-    const durationMinutes = Math.ceil(((endTime - session.startTime) / 1000) / 60);
+    const endTimestamp = Date.now();
+    const durationSeconds = (endTimestamp - session.startTime) / 1000;
+    const durationMinutes = Math.floor(durationSeconds / 60);
     
-    // Save enriched session
+    // Minimum 30s threshold (still allows XP for 30-59s at 0 minutes, but calculateSessionXP should handle 0)
+    const xpAmount = durationSeconds >= 30 
+        ? await storage.calculateSessionXP(durationMinutes, isNegativeSession)
+        : 0;
     const updated: SessionEvent = {
       ...session,
-      endTime,
+      endTime: endTimestamp,
       durationMinutes,
       appId: activity,
       reason: feeling,
@@ -68,16 +80,7 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
     };
     await storage.saveSession(updated);
     
-    // Gamification: Award or deduct XP
-    if (isNegativeSession) {
-      // Deduct XP for slip-ups (0.5 XP per minute)
-      const xpLost = Math.ceil(durationMinutes * 0.5);
-      await storage.addXP(-xpLost); // Negative value deducts
-    } else {
-      // Award XP for positive sessions (5 XP per minute)
-      const xpEarned = Math.max(10, durationMinutes * 5);
-      await storage.addXP(xpEarned);
-    }
+    await storage.addXP(xpAmount);
     
     await storage.setActiveSessionId?.(null);
     navigation.popToTop(); 
@@ -92,14 +95,16 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   }
 
-  // Calculate duration for display
-  const currentDuration = session ? Math.ceil(((Date.now() - session.startTime) / 1000) / 60) : 0;
+  // Calculate duration for display (match XP logic)
+  const durationSeconds = session ? Math.floor((Date.now() - session.startTime) / 1000) : 0;
+  const durationMinutes = Math.floor(durationSeconds / 60);
+  const displayTime = durationSeconds < 60 ? `${durationSeconds}s` : `${durationMinutes}m`;
 
   // Supportive messages for negative sessions
-  const getSupportiveMessage = (duration: number) => {
-    if (duration <= 5) return "At least it wasn't that bad! 💪";
-    if (duration <= 15) return "It happens to everyone. Next time you'll do better! 🌱";
-    if (duration <= 30) return "You caught yourself. That's progress! 🎯";
+  const getSupportiveMessage = (mins: number) => {
+    if (mins < 1) return "Every second counts! 💪";
+    if (mins <= 5) return "At least it wasn't that long! 🌱";
+    if (mins <= 15) return "You caught yourself. That's progress! 🎯";
     return "It's okay. Tomorrow is a new day. 🌅";
   };
 
@@ -111,20 +116,20 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
              <>
                <Text style={{ fontSize: 60, marginBottom: SPACING.s }}>🌊</Text>
                <Text style={TYPOGRAPHY.h1}>Session Logged</Text>
-               <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', color: '#FF6B6B', marginBottom: SPACING.xs }]}>
-                 You spent {currentDuration}m on {session?.activityType || 'distraction'}.
-               </Text>
-               <Text style={[TYPOGRAPHY.body, { textAlign: 'center', color: COLORS.textSecondary, fontStyle: 'italic' }]}>
-                 {getSupportiveMessage(currentDuration)}
-               </Text>
+                <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', color: '#FF6B6B', marginBottom: SPACING.xs }]}>
+                  You spent {displayTime} on {session?.activityType || 'distraction'}.
+                </Text>
+                <Text style={[TYPOGRAPHY.body, { textAlign: 'center', color: COLORS.textSecondary, fontStyle: 'italic' }]}>
+                  {getSupportiveMessage(durationMinutes)}
+                </Text>
              </>
            ) : (
              <>
                <Text style={{ fontSize: 60, marginBottom: SPACING.s }}>🎊</Text>
                <Text style={TYPOGRAPHY.h1}>Great Focus!</Text>
-               <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', color: COLORS.primary }]}>
-                 You spent {currentDuration}m on {session?.activityType || 'Focus'}.
-               </Text>
+                <Text style={[TYPOGRAPHY.subtitle, { textAlign: 'center', color: COLORS.primary }]}>
+                  You spent {displayTime} on {session?.activityType || 'Focus'}.
+                </Text>
              </>
            )}
         </View>
@@ -147,8 +152,8 @@ export const LogSessionScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={{ height: 20 }} />
         <Button 
           title={isNegativeSession 
-            ? `Acknowledge (-${Math.ceil(currentDuration * 0.5)} XP)` 
-            : `Claim ${Math.max(10, currentDuration * 5)} XP & Finish`
+            ? `Acknowledge (${expectedXP} XP)` 
+            : `Claim ${expectedXP} XP & Finish`
           } 
           onPress={handleSave} 
         />

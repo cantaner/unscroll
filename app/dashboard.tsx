@@ -15,6 +15,7 @@ export default function DashboardRoute() {
       const name = String(screenName).toLowerCase();
       // Try to map known screen names -> app routes
       if (name === 'settings') router.push('/settings');
+      else if (name === 'profile') router.push('/profile');
       else if (name === 'pause') router.push('/pause');
       else if (name === 'breathe') router.push('/breathe');
       else if (name === 'audio') router.push('/audio');
